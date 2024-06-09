@@ -1,29 +1,24 @@
-/*
-Stack is a small service that lets me save things for later.
-
-I use it to put a pin on links, documents and ideas that I
-want to rediscover at a later stage.
-*/
-package main
+package stack
 
 import (
-	"os"
-	"fmt"
+   "os"
+   "fmt"
+   "bytes"
 )
 
 type Stack string
 
 const ChunkSize int64 = 128
 
-func (s *Stack) size() (int64, error) {
+func (s *Stack) Size() (int64, error) {
 	i, err := os.Stat(string(*s))
 	if err != nil {
-		return 0, nil
+		return 0, err 
 	}
 	nbytes := i.Size()
 	aligned := nbytes % ChunkSize
 	if aligned != 0 {
-		fmt.Errorf("Stack not aligned: %v\n", aligned)
+		return 0,fmt.Errorf("Stack not aligned: %v\n", aligned)
 	}
 	nchunks := nbytes / ChunkSize
 	return nchunks, nil
@@ -34,7 +29,7 @@ func (s *Stack) Pop() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	size, err := s.size()
+	size, err := s.Size()
 	if err != nil {
 		return "", err
 	}
@@ -52,6 +47,7 @@ func (s *Stack) Pop() (string, error) {
 	if err != nil {
 		panic(err)
 	}
+	item = bytes.Trim(item, "\x00")
 	return string(item), nil
 }
 func (s *Stack) Push(item string) error {
@@ -71,18 +67,14 @@ func (s *Stack) Push(item string) error {
 	return nil
 }
 
-func main() {
-	stackPath := os.Args[1]
-	s := Stack(stackPath)
-	var err error
-	err = s.Push("A")
-	err = s.Push("A")
-	err = s.Push("A")
-	err = s.Push("B")
-	err = s.Push("B")
-	item, err := s.Pop()
+func (s *Stack) Truncate() error {
+	f, err := os.OpenFile(string(*s), os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		return err
+	}
+	err = f.Truncate(0)
 	if err != nil {
 		panic(err)
 	}
-	println(item)
+	return nil
 }
